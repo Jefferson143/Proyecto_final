@@ -5,9 +5,9 @@ venv/
 __pycache__/
 *.pyc
 
-# Variables de entorno
+# Variables de entorno (si usas .env)
 .env
 
-# Archivos de sistema (macOS, Windows)
+# Archivos de sistema
 .DS_Store
 Thumbs.db
