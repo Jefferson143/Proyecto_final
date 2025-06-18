@@ -1,0 +1,42 @@
+body {
+  font-family: sans-serif;
+  text-align: center;
+  margin: 20px;
+}
+.grid {
+  display: flex;
+  justify-content: center;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+.card {
+  width: 150px;
+}
+.card img {
+  width: 100%;
+  border-radius: 8px;
+}
+.card p {
+  margin-top: 8px;
+  font-weight: bold;
+}
+
+/* === Loading animation === */
+.loader {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+  background: #fff;
+}
+
+.loader img {
+  width: 150px;
+  animation: spin 2s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
