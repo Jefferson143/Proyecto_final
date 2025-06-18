@@ -1,8 +1,11 @@
+/* Estilos generales */
 body {
   font-family: sans-serif;
   text-align: center;
   margin: 20px;
 }
+
+/* Grid de tarjetas */
 .grid {
   display: flex;
   justify-content: center;
@@ -21,7 +24,7 @@ body {
   font-weight: bold;
 }
 
-/* === Loading animation === */
+/* Loader */
 .loader {
   display: flex;
   justify-content: center;
@@ -29,14 +32,61 @@ body {
   height: 100vh;
   background: #fff;
 }
-
 .loader img {
   width: 150px;
   animation: spin 2s linear infinite;
 }
-
 @keyframes spin {
   from { transform: rotate(0deg); }
   to   { transform: rotate(360deg); }
 }
 
+/* Header logo en Dashboard */
+.header-logo {
+  width: 100px;
+  margin: 20px auto;
+  display: block;
+}
+
+/* Formulario de Login y Evaluación */
+form {
+  max-width: 400px;
+  margin: 20px auto;
+  text-align: left;
+}
+label {
+  display: block;
+  margin-bottom: 8px;
+}
+textarea {
+  width: 100%;
+  padding: 8px;
+  font-size: 1rem;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  resize: vertical;
+}
+
+/* Contador de palabras */
+#wordCount {
+  font-size: 0.9rem;
+  color: #666;
+}
+
+/* Botón deshabilitado */
+button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Botones de rating */
+input[type="radio"] + label {
+  font-size: 1.5rem;
+  cursor: pointer;
+}
+input[type="radio"] {
+  display: none;
+}
+input[type="radio"]:checked + label {
+  color: gold;
+}

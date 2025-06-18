@@ -11,9 +11,8 @@ BASE_DIR = os.path.dirname(__file__)
 IMG_DIR  = os.path.join(BASE_DIR, "static/images")
 
 # Usuario de prueba
-VALID_USERS = {
-    "alumno@keyinstitute.edu.sv": "mi_contraseña_segura"
-}
+VALID_USERS = {"alumno@keyinstitute.edu.sv": "mi_contraseña_segura"}
+
 
 # -------------- Paso 4: pantalla de carga --------------
 LOADING_PAGE = """<!DOCTYPE html>
@@ -50,6 +49,46 @@ LOGIN_FORM = """<!DOCTYPE html>
 </body>
 </html>"""
 
+# Construcción del Dashboard
+def dashboard_page(user_email):
+    # Cabecera con logo
+    header = """
+    <header>
+      <img src=\"/static/images/logo.png\" alt=\"KeyFeedback Logo\" class=\"header-logo\">
+    </header>"""
+
+    # -------------- Paso 3: generar tarjetas dinámicas --------------
+    cards = []
+    for fname in os.listdir(IMG_DIR):
+        # Saltar archivos ocultos y logo.png
+        if fname.startswith('.') or fname.lower() == 'logo.png':
+            continue
+        url   = "/static/images/" + quote(fname)
+        label = os.path.splitext(fname)[0]
+        cards.append(f"""
+        <div class=\"card\">
+          <img src=\"{url}\" alt=\"{label}\">
+          <p>{label}</p>
+        </div>""")
+
+    cards_html = "\n".join(cards)
+    return f"""<!DOCTYPE html>
+<html lang=\"es\">
+<head>
+  <meta charset=\"UTF-8\">
+  <title>KeyFeedback – Dashboard</title>
+  <link rel=\"stylesheet\" href=\"/static/css/style.css\">
+</head>
+<body>
+  {header}
+  <h1>Bienvenido, {user_email}</h1>
+  <div class=\"grid\">
+    {cards_html}
+  </div>
+</body>
+</html>"""
+
+# Lógica WSGI
 def serve_static(path):
     full = os.path.join(BASE_DIR, path.lstrip("/"))
     if not os.path.isfile(full):
@@ -58,40 +97,10 @@ def serve_static(path):
     with open(full, "rb") as f:
         return ctype or "application/octet-stream", f.read()
 
-def dashboard_page(user_email):
-    # -------------- Paso 3: generar tarjetas dinámicas --------------
-    cards = []
-    for fname in os.listdir(IMG_DIR):
-        # Saltar archivos ocultos (.DS_Store, etc.)
-        if fname.startswith("."):
-            continue
-        url   = "/static/images/" + quote(fname)
-        label = os.path.splitext(fname)[0]
-        cards.append(f"""
-        <div class="card">
-          <img src="{url}" alt="{label}">
-          <p>{label}</p>
-        </div>""")
-
-    cards_html = "\n".join(cards)
-    return f"""<!DOCTYPE html>
-<html lang="es">
-<head>
-  <meta charset="UTF-8">
-  <title>KeyFeedback – Dashboard</title>
-  <link rel="stylesheet" href="/static/css/style.css">
-</head>
-<body>
-  <h1>Bienvenido, {user_email}</h1>
-  <div class="grid">
-    {cards_html}
-  </div>
-</body>
-</html>"""
 
 def app(environ, start_response):
     path   = environ.get("PATH_INFO", "/")
-    method = environ["REQUEST_METHOD"]
+    method = environ.get("REQUEST_METHOD", "GET")
 
     # 1) Servir CSS e imágenes estáticas
     if path.startswith("/static/"):
@@ -130,7 +139,6 @@ def app(environ, start_response):
 
     # 4) Dashboard en "/dashboard"
     if path == "/dashboard":
-        # Simplificamos usando un usuario fijo por ahora
         user_email = "alumno@keyinstitute.edu.sv"
         html = dashboard_page(user_email)
         start_response("200 OK", [("Content-Type","text/html; charset=utf-8")])
