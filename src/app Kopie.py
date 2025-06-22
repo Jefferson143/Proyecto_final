@@ -49,57 +49,6 @@ LOGIN_FORM = """<!DOCTYPE html>
 </body>
 </html>"""
 
-# -------------- Formulario de evaluación --------------
-EVAL_FORM = """<!DOCTYPE html>
-<html lang='es'>
-<head>
-  <meta charset='UTF-8'>
-  <title>KeyFeedback – Evaluación</title>
-  <link rel='stylesheet' href='/static/css/style.css'>
-</head>
-<body>
-  <h1>Evaluar al Profesor: {professor}</h1>
-  <form id='evalForm' method='post'>
-    <label>Puntuación:</label><br>
-    <input type='radio' id='r1' name='rating' value='1'><label for='r1'>🔑</label>
-    <input type='radio' id='r2' name='rating' value='2'><label for='r2'>🔑🔑</label>
-    <input type='radio' id='r3' name='rating' value='3'><label for='r3'>🔑🔑🔑</label>
-    <input type='radio' id='r4' name='rating' value='4'><label for='r4'>🔑🔑🔑🔑</label>
-    <input type='radio' id='r5' name='rating' value='5'><label for='r5'>🔑🔑🔑🔑🔑</label><br><br>
-    <label>Comentario (mín. 15 palabras):</label><br>
-    <textarea id='comment' name='comment' rows='4'></textarea><br>
-    <small id='wordCount'>0 palabras</small><br><br>
-    <button id='submitBtn' type='submit' disabled>Enviar evaluación</button>
-  </form>
-  <script>
-    const comment = document.getElementById('comment');
-    const radios  = document.getElementsByName('rating');
-    const btn     = document.getElementById('submitBtn');
-    const wc      = document.getElementById('wordCount');
-    const bad     = ['insulto1','insulto2'];
-    function validate() {{
-      const text = comment.value.trim();
-      const words = text ? text.split(/\\s+/) : [];
-      wc.textContent = words.length + ' palabras';
-      const rated = Array.from(radios).some(r => r.checked);
-      const okLen = words.length >= 15;
-      const okBad = !bad.some(b => text.toLowerCase().includes(b));
-      btn.disabled = !(rated && okLen && okBad);
-    }}
-    comment.addEventListener('input', validate);
-    Array.from(radios).forEach(r => r.addEventListener('change', validate));
-  </script>
-</body>
-</html>"""
-
-
-# -------------- Página de agradecimiento --------------
-THANKS_PAGE = """<!DOCTYPE html>
-<html lang='es'>
-<head><meta charset='UTF-8'><title>Gracias</title></head>
-<body><h1>¡Gracias por tu evaluación!</h1></body>
-</html>"""
-
 # Construcción del Dashboard
 def dashboard_page(user_email):
     # Cabecera con logo
@@ -114,15 +63,12 @@ def dashboard_page(user_email):
         # Saltar archivos ocultos y logo.png
         if fname.startswith('.') or fname.lower() == 'logo.png':
             continue
-        label = os.path.splitext(fname)[0]
         url   = "/static/images/" + quote(fname)
-        # Cada tarjeta es ahora un enlace a /evaluate?professor=<label>
+        label = os.path.splitext(fname)[0]
         cards.append(f"""
-        <div class="card">
-          <a href="/evaluate?professor={quote(label)}">
-            <img src="{url}" alt="{label}">
-            <p>{label}</p>
-          </a>
+        <div class=\"card\">
+          <img src=\"{url}\" alt=\"{label}\">
+          <p>{label}</p>
         </div>""")
 
     cards_html = "\n".join(cards)
@@ -197,22 +143,8 @@ def app(environ, start_response):
         html = dashboard_page(user_email)
         start_response("200 OK", [("Content-Type","text/html; charset=utf-8")])
         return [html.encode("utf-8")]
-    
-        # 5) Formulario de evaluación (/evaluate)
-    if path.startswith("/evaluate"):
-        qs   = parse_qs(environ.get("QUERY_STRING", ""))
-        prof = qs.get("professor", [""])[0]
-        if method == "GET":
-            form = EVAL_FORM.format(professor=prof)
-            start_response("200 OK", [("Content-Type","text/html; charset=utf-8")])
-            return [form.encode("utf-8")]
-        else:
-            start_response("200 OK", [("Content-Type","text/html; charset=utf-8")])
-            return [THANKS_PAGE.encode("utf-8")]
 
-
-
-    # 6) 404 por defecto
+    # 5) 404 por defecto
     start_response("404 Not Found", [("Content-Type","text/plain")])
     return [b"404 - Not Found"]
 
