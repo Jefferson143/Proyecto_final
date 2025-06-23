@@ -200,15 +200,37 @@ def app(environ, start_response):
     
         # 5) Formulario de evaluación (/evaluate)
     if path.startswith("/evaluate"):
-        qs   = parse_qs(environ.get("QUERY_STRING", ""))
-        prof = qs.get("professor", [""])[0]
-        if method == "GET":
-            form = EVAL_FORM.format(professor=prof)
+      qs   = parse_qs(environ.get("QUERY_STRING", ""))
+      prof = qs.get("professor", [""])[0]
+
+      if method == "GET":
+        form = EVAL_FORM.format(professor=prof)
+        start_response("200 OK", [("Content-Type","text/html; charset=utf-8")])
+        return [form.encode("utf-8")]
+
+      elif method == "POST":
+        size   = int(environ.get("CONTENT_LENGTH", 0) or 0)
+        post_data = environ["wsgi.input"].read(size).decode()
+        params = parse_qs(post_data)
+
+        rating  = params.get("rating", [""])[0]
+        comment = params.get("comment", [""])[0]
+
+        if not rating or len(comment.split()) < 15:
+            error_msg = "<p style='color:red;'>Debes seleccionar una puntuación y escribir al menos 15 palabras.</p>"
+            form = EVAL_FORM.format(professor=prof).replace("<form", error_msg + "<form")
             start_response("200 OK", [("Content-Type","text/html; charset=utf-8")])
             return [form.encode("utf-8")]
-        else:
-            start_response("200 OK", [("Content-Type","text/html; charset=utf-8")])
-            return [THANKS_PAGE.encode("utf-8")]
+
+        # Guardar en archivo CSV
+        with open("evaluaciones.csv", "a", encoding="utf-8") as f:
+            f.write(f"{prof},{rating},{comment.replace(',', ' ')}\n")
+
+        print(f"[EVAL] Profesor: {prof} | Rating: {rating} | Comentario: {comment}")
+        start_response("200 OK", [("Content-Type","text/html; charset=utf-8")])
+        return [THANKS_PAGE.encode("utf-8")]
+
+
 
 
 
