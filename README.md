@@ -1,6 +1,6 @@
 # 📌 Nombre del Proyecto y Número de Grupo
-Nombre del Proyecto: KeyOpina: Plataforma Web de Evaluación Docente
-Número de Grupo: Grupo 05 A
+    Nombre del Proyecto: KeyOpina: Plataforma Web de Evaluación Docente
+    Número de Grupo: Grupo 05 A
 
 # ⚙️ Instrucciones para ejecutar el proyecto
     1- Clona o descarga el repositorio en tu máquina local.
