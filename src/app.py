@@ -2,17 +2,15 @@ import os
 import mimetypes
 from wsgiref.simple_server import make_server
 from urllib.parse import parse_qs, quote, unquote
+import csv
 
 PORT = 5001
 BASE_DIR = os.path.dirname(__file__)
-STATIC_DIR = os.path.join(BASE_DIR, "static")
 CSS_PATH = "/static/css/style.css"
 USERS_FILE = os.path.join(BASE_DIR, "usuarios.txt")
 EVAL_FILE = os.path.join(BASE_DIR, "evaluaciones.csv")
 
-CURRENT_USER = {"email": "", "nombre": ""}
-
-#Profesores con sus respectiva foto
+CURRENT_USER = {"email": "", "nombre": "", "rol": ""}
 
 MATERIAS_PROFESORES = {
     "Desarrollo Personal": [
@@ -35,9 +33,8 @@ MATERIAS_PROFESORES = {
     "Fundamentos de Programación": [
         ("Erick Varela", "/static/images/erick.png")
     ]
-
-    #imagenes de materias
 }
+
 MATERIAS_IMAGENES = {
     "Desarrollo Personal": "/static/images/dp.jpg",
     "Calculo 1": "/static/images/calculo.jpeg",
@@ -61,32 +58,6 @@ def render_header():
         <span>KeyOpina</span>
     </header>
     """
-def calcular_ranking():
-    if not os.path.exists(EVAL_FILE):
-        return []
-
-    import csv
-    ratings = {}
-    counts = {}
-
-    with open(EVAL_FILE, "r", encoding="utf-8") as f:
-        reader = csv.DictReader(f)
-        for row in reader:
-            prof = row["Profesor"]
-            try:
-                rating = int(row["Rating"])
-            except (ValueError, KeyError):
-                continue
-            ratings[prof] = ratings.get(prof, 0) + rating
-            counts[prof] = counts.get(prof, 0) + 1
-
-    promedios = [
-        (prof, ratings[prof] / counts[prof], counts[prof])
-        for prof in ratings
-    ]
-    promedios.sort(key=lambda x: x[1], reverse=True)
-    return promedios
-
 
 def save_feedback(usuario, profesor, data):
     nuevo = not os.path.exists(EVAL_FILE)
@@ -94,6 +65,17 @@ def save_feedback(usuario, profesor, data):
         if nuevo:
             f.write("Usuario,Profesor,Opinion,Gusto,Comentario,Mejora,Rating\n")
         f.write(f"{usuario},{profesor},{data['opinion']},{data['gusto']},{data['comentario']},{data['mejora']},{data['rating']}\n")
+
+def obtener_feedback_para(profesor):
+    feedbacks = []
+    if not os.path.exists(EVAL_FILE):
+        return feedbacks
+    with open(EVAL_FILE, "r", encoding="utf-8") as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            if row["Profesor"] == profesor:
+                feedbacks.append(row)
+    return feedbacks
 
 def app(environ, start_response):
     global CURRENT_USER
@@ -114,20 +96,11 @@ def app(environ, start_response):
         if path == "/":
             start_response("200 OK", [("Content-Type", "text/html; charset=utf-8")])
             return [f"""
-            <!DOCTYPE html>
-            <html lang="es">
-            <head>
-                <meta charset="UTF-8">
-                <title>KeyOpina</title>
-                <link rel="stylesheet" href="{CSS_PATH}">
-            </head>
-            <body>
-                {render_header()}
-                <h1>Bienvenido a KeyOpina</h1>
-                <p>Selecciona una opción:</p>
-                <a href="/login">Iniciar sesión</a> | <a href="/register">Crear cuenta nueva</a>
-            </body>
-            </html>
+            <html><head><link rel="stylesheet" href="{CSS_PATH}"></head><body>
+            {render_header()}
+            <h1>Bienvenido a KeyOpina</h1>
+            <a href="/login">Iniciar sesión</a> | <a href="/register">Crear cuenta nueva</a>
+            </body></html>
             """.encode("utf-8")]
 
         if path == "/register":
@@ -141,6 +114,11 @@ def app(environ, start_response):
                     <label>Nombre y Apellido: <input type='text' name='nombre' required></label><br><br>
                     <label>Email: <input type='email' name='email' required></label><br><br>
                     <label>Contraseña: <input type='password' name='password' required></label><br><br>
+                    <label>Rol:</label>
+                    <select name='rol' required>
+                        <option value='Estudiante'>Estudiante</option>
+                        <option value='Profesor'>Profesor</option>
+                    </select><br><br>
                     <button type='submit'>Registrarse</button>
                 </form>
                 </body></html>
@@ -152,32 +130,11 @@ def app(environ, start_response):
                 nombre = params.get("nombre", [""])[0]
                 email = params.get("email", [""])[0]
                 password = params.get("password", [""])[0]
+                rol = params.get("rol", ["Estudiante"])[0]
                 with open(USERS_FILE, "a", encoding="utf-8") as f:
-                    f.write(f"{nombre},{email},{password}\n")
+                    f.write(f"{nombre},{email},{password},{rol}\n")
                 start_response("302 Found", [("Location", "/login")])
                 return [b""]
-
-        if path == "/ranking":
-            ranking = calcular_ranking()
-            rows = "".join([
-                f"<tr><td>{prof}</td><td>{prom:.2f}</td><td>{count}</td></tr>"
-                for prof, prom, count in ranking
-            ])
-            table = f"""
-            <h2>Ranking de Profesores</h2>
-            <table border='1' style='margin:auto;'>
-                <tr><th>Profesor</th><th>Promedio de Llaves</th><th>Número de Evaluaciones</th></tr>
-                {rows}
-            </table>
-            <p><a href='/dashboard'>Volver al dashboard</a></p>
-            """
-            start_response("200 OK", [("Content-Type", "text/html; charset=utf-8")])
-            return [f"""
-            <html><head><link rel="stylesheet" href="{CSS_PATH}"></head><body>
-            {render_header()}
-            {table}
-            </body></html>
-            """.encode("utf-8")]
 
         if path == "/login":
             if method == "GET":
@@ -202,9 +159,12 @@ def app(environ, start_response):
                 with open(USERS_FILE, "r", encoding="utf-8") as f:
                     for line in f:
                         parts = line.strip().split(",")
-                        if len(parts) >= 3 and parts[1] == email and parts[2] == password:
-                            CURRENT_USER = {"email": email, "nombre": parts[0]}
-                            start_response("302 Found", [("Location", "/dashboard")])
+                        if len(parts) >= 4 and parts[1] == email and parts[2] == password:
+                            CURRENT_USER = {"email": email, "nombre": parts[0], "rol": parts[3]}
+                            if CURRENT_USER["rol"] == "Profesor":
+                                start_response("302 Found", [("Location", "/prof_feedback")])
+                            else:
+                                start_response("302 Found", [("Location", "/dashboard")])
                             return [b""]
                 start_response("200 OK", [("Content-Type", "text/html; charset=utf-8")])
                 return [f"<p style='color:red;'>Usuario o contraseña incorrectos</p><a href='/login'>Intentar de nuevo</a>".encode("utf-8")]
@@ -212,8 +172,6 @@ def app(environ, start_response):
         if path == "/dashboard":
             params = parse_qs(query)
             materia = params.get("materia", [""])[0]
-            content = ""
-
             if materia and materia in MATERIAS_PROFESORES:
                 profesores = MATERIAS_PROFESORES[materia]
                 prof_cards = "".join([f"""
@@ -233,7 +191,6 @@ def app(environ, start_response):
                     </a>
                 </div>""" for m in MATERIAS_PROFESORES])
                 content = f"<div class='grid'>{materias_links}</div>"
-
             start_response("200 OK", [("Content-Type", "text/html; charset=utf-8")])
             return [f"""
             <html><head><link rel="stylesheet" href="{CSS_PATH}"></head><body>
@@ -255,19 +212,19 @@ def app(environ, start_response):
                 <h1>Feedback para {profesor}</h1>
                 <form method='post'>
                     <input type='hidden' name='profesor' value='{profesor}'>
-                    <label>¿Qué opinas sobre tu profesor?</label>
+                    <label>¿Qué opinas sobre tu profesor?</label><br>
                     <textarea name='opinion' required></textarea><br><br>
-                    <label>¿Qué es lo que más te gusta de tu profesor?</label>
+                    <label>¿Qué es lo que más te gusta de tu profesor?</label><br>
                     <textarea name='gusto' required></textarea><br><br>
-                    <label>¿Tienes algún comentario general para tu profesor?</label>
+                    <label>¿Tienes algún comentario general para tu profesor?</label><br>
                     <textarea name='comentario'></textarea><br><br>
-                    <label>¿Cómo mejorarías la manera de enseñar de tu profesor?</label>
+                    <label>¿Cómo mejorarías la manera de enseñar de tu profesor?</label><br>
                     <textarea name='mejora'></textarea><br><br>
-                    <label>¿Cuántas llaves le das a tu profesor? (1-5)</label>
+                    <label>¿Cuántas llaves le das a tu profesor? (1-5)</label><br>
                     <input type='number' name='rating' min='1' max='5' required><br><br>
                     <button type='submit'>Enviar feedback</button>
                 </form>
-                <p><a href='/dashboard'>Volver al dashboard</a></p>
+                <p><a href='/dashboard'>Volver</a></p>
                 </body></html>
                 """.encode("utf-8")]
             else:
@@ -286,8 +243,25 @@ def app(environ, start_response):
                 start_response("200 OK", [("Content-Type", "text/html; charset=utf-8")])
                 return [f"<p>¡Gracias por tu feedback sobre {profesor}!</p><a href='/dashboard'>Volver al dashboard</a>".encode("utf-8")]
 
+        if path == "/prof_feedback":
+            feedbacks = obtener_feedback_para(CURRENT_USER["nombre"])
+            rows = "".join([
+                f"<tr><td>{f['Usuario']}</td><td>{f['Opinion']}</td><td>{f['Rating']}</td></tr>"
+                for f in feedbacks
+            ])
+            table = f"""
+            <h2>Feedback recibido</h2>
+            <table border='1' style='margin:auto;'>
+                <tr><th>Estudiante</th><th>Opinión</th><th>Llaves</th></tr>
+                {rows}
+            </table>
+            <p><a href='/logout'>Cerrar sesión</a></p>
+            """
+            start_response("200 OK", [("Content-Type", "text/html; charset=utf-8")])
+            return [f"<html><head><link rel='stylesheet' href='{CSS_PATH}'></head><body>{render_header()}{table}</body></html>".encode("utf-8")]
+
         if path == "/logout":
-            CURRENT_USER = {"email": "", "nombre": ""}
+            CURRENT_USER = {"email": "", "nombre": "", "rol": ""}
             start_response("302 Found", [("Location", "/")])
             return [b""]
 
@@ -298,7 +272,6 @@ def app(environ, start_response):
         print(f"Error: {e}")
         start_response("500 Internal Server Error", [("Content-Type", "text/plain")])
         return [b"Error interno del servidor"]
-
 
 if __name__ == "__main__":
     print(f"Servidor en http://127.0.0.1:{PORT}/")

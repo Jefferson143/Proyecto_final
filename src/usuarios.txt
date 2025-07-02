@@ -1,3 +1,4 @@
 Jefferson ;Escobar;jefferson;12345678
 Omar Escobar,jefferson.escobar@keyinstitute.edu.sv,12345678
-Rafael Ruíz,rafael.ruiz@keyinstitute.edu.sv,Key_000060
+Jefferson Escobar,jeffersono.escobare@gmail.com,12345678,Profesor
+Omar Escobar,jefferson.escobar@keyinstitute.edu.sv,2345678,Estudiante
