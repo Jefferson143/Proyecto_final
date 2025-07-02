@@ -3,17 +3,17 @@ Nombre del Proyecto: KeyOpina: Plataforma Web de Evaluación Docente
 Número de Grupo: Grupo 05 A
 
 # ⚙️ Instrucciones para ejecutar el proyecto
-1- Clona o descarga el repositorio en tu máquina local.
-2- Asegúrate de tener Python 3 instalado.
-3- Abre una terminal o línea de comandos en la carpeta del proyecto.
-4- Ejecuta el servidor con el comando:
-    python app.py
-5- Abre tu navegador en la dirección:
-    http://127.0.0.1:5001/
-6- Navega por la aplicación para:
-    Registrar usuarios
-    Iniciar sesión
-    Enviar feedback
+    1- Clona o descarga el repositorio en tu máquina local.
+    2- Asegúrate de tener Python 3 instalado.
+    3- Abre una terminal o línea de comandos en la carpeta del proyecto.
+    4- Ejecuta el servidor con el comando:
+        python app.py
+    5- Abre tu navegador en la dirección:
+        http://127.0.0.1:5001/
+    6- Navega por la aplicación para:
+        Registrar usuarios
+        Iniciar sesión
+        Enviar feedback
 
 # 📦 Librerías necesarias
 ✅ Todas las librerías utilizadas son estándar de Python (no necesitas instalación con pip):
@@ -27,16 +27,16 @@ Número de Grupo: Grupo 05 A
 # 🗂️ Estructura de Carpetas Sugerida
 Organiza los archivos así para que funcione correctamente:
 
-/proyecto (Carpeta principal)
-    /src
-        /static
-            /css
-                style.css
-            /images
-                [imágenes de profesores y materias]
-        usuarios.txt
-        evaluaciones.csv
-        app.py
+    /proyecto (Carpeta principal)
+        /src
+            /static
+                /css
+                    style.css
+                /images
+                    [imágenes de profesores y materias]
+            usuarios.txt
+            evaluaciones.csv
+            app.py
 
 
 Explicación de cada componente: 
