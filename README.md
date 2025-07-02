@@ -40,10 +40,10 @@ Organiza los archivos así para que funcione correctamente:
 
 
 Explicación de cada componente: 
-/static/css/style.css: esta es la hoja de estilos. 
-/static/images/: todas las imágenes referenciadas en el código.
-usuarios.txt: se crea automáticamente al registrar usuarios.
-evaluaciones.csv: se crea o actualiza al enviar feedback.
+    /static/css/style.css: esta es la hoja de estilos. 
+    /static/images/: todas las imágenes referenciadas en el código.
+    usuarios.txt: se crea automáticamente al registrar usuarios.
+    evaluaciones.csv: se crea o actualiza al enviar feedback.
 
 # ✅ Otros pasos relevantes
     - Asegúrate de tener creadas las carpetas /static/css y /static/images con sus contenidos antes de ejecutar el servidor.
