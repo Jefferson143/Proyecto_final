@@ -156,29 +156,28 @@ def app(environ, start_response):
                     f.write(f"{nombre},{email},{password}\n")
                 start_response("302 Found", [("Location", "/login")])
                 return [b""]
-            
+
         if path == "/ranking":
             ranking = calcular_ranking()
             rows = "".join([
-            f"<tr><td>{prof}</td><td>{prom:.2f}</td><td>{count}</td></tr>"
-            for prof, prom, count in ranking
-        ])
-        table = f"""
-        <h2>Ranking de Profesores</h2>
-        <table border='1' style='margin:auto;'>
-         <tr><th>Profesor</th><th>Promedio de Llaves</th><th>Número de Evaluaciones</th></tr>
-            {rows}
-        </table>
-        <p><a href='/dashboard'>Volver al dashboard</a></p>
-        """
-    start_response("200 OK", [("Content-Type", "text/html; charset=utf-8")])
-    return [f"""
-    <html><head><link rel="stylesheet" href="{CSS_PATH}"></head><body>
-    {render_header()}
-    {table}
-    </body></html>
-    """.encode("utf-8")]
-
+                f"<tr><td>{prof}</td><td>{prom:.2f}</td><td>{count}</td></tr>"
+                for prof, prom, count in ranking
+            ])
+            table = f"""
+            <h2>Ranking de Profesores</h2>
+            <table border='1' style='margin:auto;'>
+                <tr><th>Profesor</th><th>Promedio de Llaves</th><th>Número de Evaluaciones</th></tr>
+                {rows}
+            </table>
+            <p><a href='/dashboard'>Volver al dashboard</a></p>
+            """
+            start_response("200 OK", [("Content-Type", "text/html; charset=utf-8")])
+            return [f"""
+            <html><head><link rel="stylesheet" href="{CSS_PATH}"></head><body>
+            {render_header()}
+            {table}
+            </body></html>
+            """.encode("utf-8")]
 
         if path == "/login":
             if method == "GET":
@@ -227,13 +226,12 @@ def app(environ, start_response):
                 content = f"<h2>Profesores de {materia}</h2><div class='grid'>{prof_cards}</div><p><a href='/dashboard'>Volver</a></p>"
             else:
                 materias_links = "".join([f"""
-                    <div class='card'>
-                      <a href='/dashboard?materia={quote(m)}'>
-                   <img src='{MATERIAS_IMAGENES[m]}' alt='{m}'><br>
-                  <span>{m}</span>
-                      </a>
-                    </div>""" for m in MATERIAS_PROFESORES])
-
+                <div class='card'>
+                    <a href='/dashboard?materia={quote(m)}'>
+                        <img src='{MATERIAS_IMAGENES[m]}' alt='{m}'><br>
+                        <span>{m}</span>
+                    </a>
+                </div>""" for m in MATERIAS_PROFESORES])
                 content = f"<div class='grid'>{materias_links}</div>"
 
             start_response("200 OK", [("Content-Type", "text/html; charset=utf-8")])
@@ -300,6 +298,7 @@ def app(environ, start_response):
         print(f"Error: {e}")
         start_response("500 Internal Server Error", [("Content-Type", "text/plain")])
         return [b"Error interno del servidor"]
+
 
 if __name__ == "__main__":
     print(f"Servidor en http://127.0.0.1:{PORT}/")
