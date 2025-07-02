@@ -1,243 +1,306 @@
-#!/usr/bin/env python3
-# src/app.py
-
 import os
 import mimetypes
 from wsgiref.simple_server import make_server
-from urllib.parse import quote, parse_qs
+from urllib.parse import parse_qs, quote, unquote
 
-PORT     = 5001
+PORT = 5001
 BASE_DIR = os.path.dirname(__file__)
-IMG_DIR  = os.path.join(BASE_DIR, "static/images")
+STATIC_DIR = os.path.join(BASE_DIR, "static")
+CSS_PATH = "/static/css/style.css"
+USERS_FILE = os.path.join(BASE_DIR, "usuarios.txt")
+EVAL_FILE = os.path.join(BASE_DIR, "evaluaciones.csv")
 
-# Usuario de prueba
-VALID_USERS = {"alumno@keyinstitute.edu.sv": "mi_contraseña_segura"}
+CURRENT_USER = {"email": "", "nombre": ""}
 
+#Profesores con sus respectiva foto
 
-# -------------- Paso 4: pantalla de carga --------------
-LOADING_PAGE = """<!DOCTYPE html>
-<html lang="es">
-<head>
-  <meta charset="UTF-8">
-  <title>KeyFeedback – Cargando</title>
-  <link rel="stylesheet" href="/static/css/style.css">
-  <!-- tras 2s redirige a /login -->
-  <meta http-equiv="refresh" content="2;URL=/login">
-</head>
-<body>
-  <div class="loader">
-    <img src="/static/images/logo.png" alt="Logo KeyFeedback">
-  </div>
-</body>
-</html>"""
+MATERIAS_PROFESORES = {
+    "Desarrollo Personal": [
+        ("Jimena Alcaine", "/static/images/jimena.jpg"),
+        ("Valeria Moncada", "/static/images/Valeria.jpeg"),
+        ("Rebeca Quintanilla", "/static/images/Rebeca.jpeg")
+    ],
+    "Calculo 1": [
+        ("Alberto Martinez", "/static/images/Albert.png")
+    ],
+    "Fisica 1": [
+        ("Josue Quintanilla", "/static/images/josue.jpeg")
+    ],
+    "Introducción a la Ingeniería": [
+        ("Regina Serpas", "/static/images/regi.png"),
+        ("Sergio Navarro", "/static/images/sergio.png"),
+        ("Roher Alfaro", "/static/images/roher.png"),
+        ("Miguel Batres", "/static/images/miguel.png")
+    ],
+    "Fundamentos de Programación": [
+        ("Erick Varela", "/static/images/erick.png")
+    ]
 
-# -------------- HTML del login --------------
-LOGIN_FORM = """<!DOCTYPE html>
-<html lang="es">
-<head>
-  <meta charset="UTF-8">
-  <title>KeyFeedback – Login</title>
-  <link rel="stylesheet" href="/static/css/style.css">
-</head>
-<body>
-  <h1>Iniciar sesión</h1>
-  <form method="post">
-    <label>Correo: <input type="email" name="email" required></label><br><br>
-    <label>Contraseña: <input type="password" name="password" required></label><br><br>
-    <button type="submit">Entrar</button>
-  </form>
-</body>
-</html>"""
+    #imagenes de materias
+}
+MATERIAS_IMAGENES = {
+    "Desarrollo Personal": "/static/images/dp.jpg",
+    "Calculo 1": "/static/images/calculo.jpeg",
+    "Fisica 1": "/static/images/fisica.webp",
+    "Introducción a la Ingeniería": "/static/images/intro.jpg",
+    "Fundamentos de Programación": "/static/images/progra.png"
+}
 
-# -------------- Formulario de evaluación --------------
-EVAL_FORM = """<!DOCTYPE html>
-<html lang='es'>
-<head>
-  <meta charset='UTF-8'>
-  <title>KeyFeedback – Evaluación</title>
-  <link rel='stylesheet' href='/static/css/style.css'>
-</head>
-<body>
-  <h1>Evaluar al Profesor: {professor}</h1>
-  <form id='evalForm' method='post'>
-    <label>Puntuación:</label><br>
-    <input type='radio' id='r1' name='rating' value='1'><label for='r1'>🔑</label>
-    <input type='radio' id='r2' name='rating' value='2'><label for='r2'>🔑🔑</label>
-    <input type='radio' id='r3' name='rating' value='3'><label for='r3'>🔑🔑🔑</label>
-    <input type='radio' id='r4' name='rating' value='4'><label for='r4'>🔑🔑🔑🔑</label>
-    <input type='radio' id='r5' name='rating' value='5'><label for='r5'>🔑🔑🔑🔑🔑</label><br><br>
-    <label>Comentario (mín. 15 palabras):</label><br>
-    <textarea id='comment' name='comment' rows='4'></textarea><br>
-    <small id='wordCount'>0 palabras</small><br><br>
-    <button id='submitBtn' type='submit' disabled>Enviar evaluación</button>
-  </form>
-  <script>
-    const comment = document.getElementById('comment');
-    const radios  = document.getElementsByName('rating');
-    const btn     = document.getElementById('submitBtn');
-    const wc      = document.getElementById('wordCount');
-    const bad     = ['insulto1','insulto2'];
-    function validate() {{
-      const text = comment.value.trim();
-      const words = text ? text.split(/\\s+/) : [];
-      wc.textContent = words.length + ' palabras';
-      const rated = Array.from(radios).some(r => r.checked);
-      const okLen = words.length >= 15;
-      const okBad = !bad.some(b => text.toLowerCase().includes(b));
-      btn.disabled = !(rated && okLen && okBad);
-    }}
-    comment.addEventListener('input', validate);
-    Array.from(radios).forEach(r => r.addEventListener('change', validate));
-  </script>
-</body>
-</html>"""
-
-
-# -------------- Página de agradecimiento --------------
-THANKS_PAGE = """<!DOCTYPE html>
-<html lang='es'>
-<head><meta charset='UTF-8'><title>Gracias</title></head>
-<body><h1>¡Gracias por tu evaluación!</h1></body>
-</html>"""
-
-# Construcción del Dashboard
-def dashboard_page(user_email):
-    # Cabecera con logo
-    header = """
-    <header>
-      <img src=\"/static/images/logo.png\" alt=\"KeyFeedback Logo\" class=\"header-logo\">
-    </header>"""
-
-    # -------------- Paso 3: generar tarjetas dinámicas --------------
-    cards = []
-    for fname in os.listdir(IMG_DIR):
-        # Saltar archivos ocultos y logo.png
-        if fname.startswith('.') or fname.lower() == 'logo.png':
-            continue
-        label = os.path.splitext(fname)[0]
-        url   = "/static/images/" + quote(fname)
-        # Cada tarjeta es ahora un enlace a /evaluate?professor=<label>
-        cards.append(f"""
-        <div class="card">
-          <a href="/evaluate?professor={quote(label)}">
-            <img src="{url}" alt="{label}">
-            <p>{label}</p>
-          </a>
-        </div>""")
-
-    cards_html = "\n".join(cards)
-    return f"""<!DOCTYPE html>
-<html lang=\"es\">
-<head>
-  <meta charset=\"UTF-8\">
-  <title>KeyFeedback – Dashboard</title>
-  <link rel=\"stylesheet\" href=\"/static/css/style.css\">
-</head>
-<body>
-  {header}
-  <h1>Bienvenido, {user_email}</h1>
-  <div class=\"grid\">
-    {cards_html}
-  </div>
-</body>
-</html>"""
-
-# Lógica WSGI
 def serve_static(path):
     full = os.path.join(BASE_DIR, path.lstrip("/"))
-    if not os.path.isfile(full):
-        return None, None
-    ctype, _ = mimetypes.guess_type(full)
-    with open(full, "rb") as f:
-        return ctype or "application/octet-stream", f.read()
+    if os.path.isfile(full):
+        ctype, _ = mimetypes.guess_type(full)
+        with open(full, "rb") as f:
+            return ctype or "application/octet-stream", f.read()
+    return None, None
 
+def render_header():
+    return """
+    <header>
+        <img src='/static/images/key_logo.png' alt='Key Logo'>
+        <span>KeyOpina</span>
+    </header>
+    """
+def calcular_ranking():
+    if not os.path.exists(EVAL_FILE):
+        return []
+
+    import csv
+    ratings = {}
+    counts = {}
+
+    with open(EVAL_FILE, "r", encoding="utf-8") as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            prof = row["Profesor"]
+            try:
+                rating = int(row["Rating"])
+            except (ValueError, KeyError):
+                continue
+            ratings[prof] = ratings.get(prof, 0) + rating
+            counts[prof] = counts.get(prof, 0) + 1
+
+    promedios = [
+        (prof, ratings[prof] / counts[prof], counts[prof])
+        for prof in ratings
+    ]
+    promedios.sort(key=lambda x: x[1], reverse=True)
+    return promedios
+
+
+def save_feedback(usuario, profesor, data):
+    nuevo = not os.path.exists(EVAL_FILE)
+    with open(EVAL_FILE, "a", encoding="utf-8") as f:
+        if nuevo:
+            f.write("Usuario,Profesor,Opinion,Gusto,Comentario,Mejora,Rating\n")
+        f.write(f"{usuario},{profesor},{data['opinion']},{data['gusto']},{data['comentario']},{data['mejora']},{data['rating']}\n")
 
 def app(environ, start_response):
-    path   = environ.get("PATH_INFO", "/")
+    global CURRENT_USER
+    path = environ.get("PATH_INFO", "/")
     method = environ.get("REQUEST_METHOD", "GET")
+    query = environ.get("QUERY_STRING", "")
 
-    # 1) Servir CSS e imágenes estáticas
-    if path.startswith("/static/"):
-        ctype, data = serve_static(path)
-        if data is not None:
-            start_response("200 OK", [("Content-Type", ctype)])
-            return [data]
+    try:
+        if path.startswith("/static/"):
+            ctype, data = serve_static(path)
+            if data:
+                start_response("200 OK", [("Content-Type", ctype)])
+                return [data]
+            else:
+                start_response("404 Not Found", [("Content-Type", "text/plain")])
+                return [b"Archivo no encontrado"]
 
-    # 2) Pantalla de carga en "/"
-    if path == "/":
-        start_response("200 OK", [("Content-Type","text/html; charset=utf-8")])
-        return [LOADING_PAGE.encode("utf-8")]
+        if path == "/":
+            start_response("200 OK", [("Content-Type", "text/html; charset=utf-8")])
+            return [f"""
+            <!DOCTYPE html>
+            <html lang="es">
+            <head>
+                <meta charset="UTF-8">
+                <title>KeyOpina</title>
+                <link rel="stylesheet" href="{CSS_PATH}">
+            </head>
+            <body>
+                {render_header()}
+                <h1>Bienvenido a KeyOpina</h1>
+                <p>Selecciona una opción:</p>
+                <a href="/login">Iniciar sesión</a> | <a href="/register">Crear cuenta nueva</a>
+            </body>
+            </html>
+            """.encode("utf-8")]
 
-    # 3) Login en "/login"
-    if path == "/login":
-        if method == "GET":
-            body = LOGIN_FORM
-        else:
-            size   = int(environ.get("CONTENT_LENGTH", 0) or 0)
-            params = parse_qs(environ["wsgi.input"].read(size).decode())
-            email  = params.get("email", [""])[0]
-            pwd    = params.get("password", [""])[0]
-
-            if VALID_USERS.get(email) == pwd:
-                # Redirigir a dashboard
-                start_response("302 Found", [("Location", "/dashboard")])
+        if path == "/register":
+            if method == "GET":
+                start_response("200 OK", [("Content-Type", "text/html; charset=utf-8")])
+                return [f"""
+                <html><head><link rel="stylesheet" href="{CSS_PATH}"></head><body>
+                {render_header()}
+                <h1>Registrar nuevo usuario</h1>
+                <form method='post'>
+                    <label>Nombre y Apellido: <input type='text' name='nombre' required></label><br><br>
+                    <label>Email: <input type='email' name='email' required></label><br><br>
+                    <label>Contraseña: <input type='password' name='password' required></label><br><br>
+                    <button type='submit'>Registrarse</button>
+                </form>
+                </body></html>
+                """.encode("utf-8")]
+            else:
+                size = int(environ.get("CONTENT_LENGTH", 0) or 0)
+                data = environ["wsgi.input"].read(size).decode()
+                params = parse_qs(data)
+                nombre = params.get("nombre", [""])[0]
+                email = params.get("email", [""])[0]
+                password = params.get("password", [""])[0]
+                with open(USERS_FILE, "a", encoding="utf-8") as f:
+                    f.write(f"{nombre},{email},{password}\n")
+                start_response("302 Found", [("Location", "/login")])
                 return [b""]
-            # Credenciales inválidas: recarga con mensaje
-            body = LOGIN_FORM.replace(
-                "<h1>Iniciar sesión</h1>",
-                "<h1>Iniciar sesión</h1><p style='color:red;'>Credenciales inválidas</p>"
-            )
-
-        start_response("200 OK", [("Content-Type","text/html; charset=utf-8")])
-        return [body.encode("utf-8")]
-
-    # 4) Dashboard en "/dashboard"
-    if path == "/dashboard":
-        user_email = "alumno@keyinstitute.edu.sv"
-        html = dashboard_page(user_email)
-        start_response("200 OK", [("Content-Type","text/html; charset=utf-8")])
-        return [html.encode("utf-8")]
-    
-        # 5) Formulario de evaluación (/evaluate)
-    if path.startswith("/evaluate"):
-      qs   = parse_qs(environ.get("QUERY_STRING", ""))
-      prof = qs.get("professor", [""])[0]
-
-      if method == "GET":
-        form = EVAL_FORM.format(professor=prof)
-        start_response("200 OK", [("Content-Type","text/html; charset=utf-8")])
-        return [form.encode("utf-8")]
-
-      elif method == "POST":
-        size   = int(environ.get("CONTENT_LENGTH", 0) or 0)
-        post_data = environ["wsgi.input"].read(size).decode()
-        params = parse_qs(post_data)
-
-        rating  = params.get("rating", [""])[0]
-        comment = params.get("comment", [""])[0]
-
-        if not rating or len(comment.split()) < 15:
-            error_msg = "<p style='color:red;'>Debes seleccionar una puntuación y escribir al menos 15 palabras.</p>"
-            form = EVAL_FORM.format(professor=prof).replace("<form", error_msg + "<form")
-            start_response("200 OK", [("Content-Type","text/html; charset=utf-8")])
-            return [form.encode("utf-8")]
-
-        # Guardar en archivo CSV
-        with open("evaluaciones.csv", "a", encoding="utf-8") as f:
-            f.write(f"{prof},{rating},{comment.replace(',', ' ')}\n")
-
-        print(f"[EVAL] Profesor: {prof} | Rating: {rating} | Comentario: {comment}")
-        start_response("200 OK", [("Content-Type","text/html; charset=utf-8")])
-        return [THANKS_PAGE.encode("utf-8")]
+            
+        if path == "/ranking":
+            ranking = calcular_ranking()
+            rows = "".join([
+            f"<tr><td>{prof}</td><td>{prom:.2f}</td><td>{count}</td></tr>"
+            for prof, prom, count in ranking
+        ])
+        table = f"""
+        <h2>Ranking de Profesores</h2>
+        <table border='1' style='margin:auto;'>
+         <tr><th>Profesor</th><th>Promedio de Llaves</th><th>Número de Evaluaciones</th></tr>
+            {rows}
+        </table>
+        <p><a href='/dashboard'>Volver al dashboard</a></p>
+        """
+    start_response("200 OK", [("Content-Type", "text/html; charset=utf-8")])
+    return [f"""
+    <html><head><link rel="stylesheet" href="{CSS_PATH}"></head><body>
+    {render_header()}
+    {table}
+    </body></html>
+    """.encode("utf-8")]
 
 
+        if path == "/login":
+            if method == "GET":
+                start_response("200 OK", [("Content-Type", "text/html; charset=utf-8")])
+                return [f"""
+                <html><head><link rel="stylesheet" href="{CSS_PATH}"></head><body>
+                {render_header()}
+                <h1>Login</h1>
+                <form method='post'>
+                    <label>Email: <input type='email' name='email' required></label><br><br>
+                    <label>Contraseña: <input type='password' name='password' required></label><br><br>
+                    <button type='submit'>Entrar</button>
+                </form>
+                </body></html>
+                """.encode("utf-8")]
+            else:
+                size = int(environ.get("CONTENT_LENGTH", 0) or 0)
+                data = environ["wsgi.input"].read(size).decode()
+                params = parse_qs(data)
+                email = params.get("email", [""])[0]
+                password = params.get("password", [""])[0]
+                with open(USERS_FILE, "r", encoding="utf-8") as f:
+                    for line in f:
+                        parts = line.strip().split(",")
+                        if len(parts) >= 3 and parts[1] == email and parts[2] == password:
+                            CURRENT_USER = {"email": email, "nombre": parts[0]}
+                            start_response("302 Found", [("Location", "/dashboard")])
+                            return [b""]
+                start_response("200 OK", [("Content-Type", "text/html; charset=utf-8")])
+                return [f"<p style='color:red;'>Usuario o contraseña incorrectos</p><a href='/login'>Intentar de nuevo</a>".encode("utf-8")]
 
+        if path == "/dashboard":
+            params = parse_qs(query)
+            materia = params.get("materia", [""])[0]
+            content = ""
 
+            if materia and materia in MATERIAS_PROFESORES:
+                profesores = MATERIAS_PROFESORES[materia]
+                prof_cards = "".join([f"""
+                <div class='card'>
+                    <a href='/feedback?profesor={quote(prof)}'>
+                        <img src='{foto}' alt='{prof}'><br>
+                        <span>{prof}</span>
+                    </a>
+                </div>""" for prof, foto in profesores])
+                content = f"<h2>Profesores de {materia}</h2><div class='grid'>{prof_cards}</div><p><a href='/dashboard'>Volver</a></p>"
+            else:
+                materias_links = "".join([f"""
+                    <div class='card'>
+                      <a href='/dashboard?materia={quote(m)}'>
+                   <img src='{MATERIAS_IMAGENES[m]}' alt='{m}'><br>
+                  <span>{m}</span>
+                      </a>
+                    </div>""" for m in MATERIAS_PROFESORES])
 
-    # 6) 404 por defecto
-    start_response("404 Not Found", [("Content-Type","text/plain")])
-    return [b"404 - Not Found"]
+                content = f"<div class='grid'>{materias_links}</div>"
+
+            start_response("200 OK", [("Content-Type", "text/html; charset=utf-8")])
+            return [f"""
+            <html><head><link rel="stylesheet" href="{CSS_PATH}"></head><body>
+            {render_header()}
+            <h1>Bienvenido a KeyOpina, {CURRENT_USER['nombre']}</h1>
+            {content}
+            <p><a href='/logout'>Cerrar sesión</a></p>
+            </body></html>
+            """.encode("utf-8")]
+
+        if path == "/feedback":
+            if method == "GET":
+                params = parse_qs(query)
+                profesor = unquote(params.get("profesor", [""])[0])
+                start_response("200 OK", [("Content-Type", "text/html; charset=utf-8")])
+                return [f"""
+                <html><head><link rel="stylesheet" href="{CSS_PATH}"></head><body>
+                {render_header()}
+                <h1>Feedback para {profesor}</h1>
+                <form method='post'>
+                    <input type='hidden' name='profesor' value='{profesor}'>
+                    <label>¿Qué opinas sobre tu profesor?</label>
+                    <textarea name='opinion' required></textarea><br><br>
+                    <label>¿Qué es lo que más te gusta de tu profesor?</label>
+                    <textarea name='gusto' required></textarea><br><br>
+                    <label>¿Tienes algún comentario general para tu profesor?</label>
+                    <textarea name='comentario'></textarea><br><br>
+                    <label>¿Cómo mejorarías la manera de enseñar de tu profesor?</label>
+                    <textarea name='mejora'></textarea><br><br>
+                    <label>¿Cuántas llaves le das a tu profesor? (1-5)</label>
+                    <input type='number' name='rating' min='1' max='5' required><br><br>
+                    <button type='submit'>Enviar feedback</button>
+                </form>
+                <p><a href='/dashboard'>Volver al dashboard</a></p>
+                </body></html>
+                """.encode("utf-8")]
+            else:
+                size = int(environ.get("CONTENT_LENGTH", 0) or 0)
+                data = environ["wsgi.input"].read(size).decode()
+                params = parse_qs(data)
+                profesor = params.get("profesor", [""])[0]
+                feedback_data = {
+                    "opinion": params.get("opinion", [""])[0],
+                    "gusto": params.get("gusto", [""])[0],
+                    "comentario": params.get("comentario", [""])[0],
+                    "mejora": params.get("mejora", [""])[0],
+                    "rating": params.get("rating", [""])[0]
+                }
+                save_feedback(CURRENT_USER["email"], profesor, feedback_data)
+                start_response("200 OK", [("Content-Type", "text/html; charset=utf-8")])
+                return [f"<p>¡Gracias por tu feedback sobre {profesor}!</p><a href='/dashboard'>Volver al dashboard</a>".encode("utf-8")]
+
+        if path == "/logout":
+            CURRENT_USER = {"email": "", "nombre": ""}
+            start_response("302 Found", [("Location", "/")])
+            return [b""]
+
+        start_response("404 Not Found", [("Content-Type", "text/html; charset=utf-8")])
+        return ["<h1>Página no encontrada</h1>".encode("utf-8")]
+
+    except Exception as e:
+        print(f"Error: {e}")
+        start_response("500 Internal Server Error", [("Content-Type", "text/plain")])
+        return [b"Error interno del servidor"]
 
 if __name__ == "__main__":
-    print(f"Servidor escuchando en http://127.0.0.1:{PORT}/ …")
+    print(f"Servidor en http://127.0.0.1:{PORT}/")
     make_server("", PORT, app).serve_forever()
